@@ -1,0 +1,15 @@
+{
+	auto_https off
+}
+
+:80 {
+	encode gzip
+	handle /api/* {
+		reverse_proxy maestro-api:8085
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

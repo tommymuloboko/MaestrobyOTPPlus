@@ -1,0 +1,66 @@
+name: maestro-prod
+
+# Runs behind the VPS's shared Caddy (network maestro-sync_internal). No ports are published.
+# Add to the shared Caddyfile:
+#   maestrobyotpplus.com, www.maestrobyotpplus.com {
+#       reverse_proxy maestro-web:80
+#   }
+services:
+  maestro-db:
+    image: postgres:16-alpine
+    container_name: maestro-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: maestro
+      POSTGRES_USER: maestro
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - maestro_pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits: { cpus: "0.75", memory: 512M }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maestro -d maestro"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    image: maestro-api
+    container_name: maestro-api
+    restart: unless-stopped
+    depends_on:
+      maestro-db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres
+      MAESTRO_DB_URL: jdbc:postgresql://maestro-db:5432/maestro
+      MAESTRO_DB_USER: maestro
+      MAESTRO_DB_PASSWORD: ${DB_PASSWORD}
+      MAESTRO_SEED_PASSWORD: ${SEED_PASSWORD:?set SEED_PASSWORD in .env}
+      MAESTRO_DEMO_EXPOSE_OTP: "false"
+      MAESTRO_MQTT_ENABLED: "false"
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 768M }
+
+  web:
+    build: ./portal
+    image: maestro-web
+    container_name: maestro-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - default
+      - maestro
+
+networks:
+  default:
+  maestro:
+    external: true
+    name: maestro-sync_internal
+
+volumes:
+  maestro_pgdata:

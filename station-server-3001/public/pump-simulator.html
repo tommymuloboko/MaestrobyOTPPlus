@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAESTRO-LITE Pump Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: white;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 2.5rem;
+      color: #00d4ff;
+      text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    }
+    .header p { color: #888; margin-top: 10px; }
+    
+    .status-bar {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    .status-item {
+      background: rgba(255,255,255,0.1);
+      padding: 15px 25px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .status-item .label { font-size: 0.8rem; color: #888; }
+    .status-item .value { font-size: 1.5rem; font-weight: bold; margin-top: 5px; }
+    .status-item.connected .value { color: #00ff88; }
+    .status-item.disconnected .value { color: #ff4444; }
+    
+    .pumps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .pump-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      padding: 20px;
+      border: 2px solid rgba(255,255,255,0.1);
+      transition: all 0.3s ease;
+    }
+    .pump-card.locked {
+      border-color: rgba(255,68,68,0.5);
+      background: rgba(255,68,68,0.05);
+    }
+    .pump-card.unlocked {
+      border-color: rgba(0,255,136,0.5);
+      background: rgba(0,255,136,0.05);
+      box-shadow: 0 0 30px rgba(0,255,136,0.2);
+    }
+    .pump-card.fueling {
+      border-color: rgba(255,200,0,0.5);
+      background: rgba(255,200,0,0.05);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(255,200,0,0.3); }
+      50% { box-shadow: 0 0 40px rgba(255,200,0,0.6); }
+    }
+    
+    .pump-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .pump-number {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #00d4ff;
+    }
+    .pump-status {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .pump-status.locked { background: #ff4444; }
+    .pump-status.unlocked { background: #00ff88; color: #000; }
+    .pump-status.fueling { background: #ffc800; color: #000; }
+    
+    .pump-attendant {
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+    .pump-attendant .tag { color: #00d4ff; font-family: monospace; }
+    .pump-attendant .name { color: #00ff88; }
+    
+    .pump-input {
+      margin-bottom: 15px;
+    }
+    .pump-input label {
+      display: block;
+      margin-bottom: 5px;
+      color: #888;
+      font-size: 0.9rem;
+    }
+    .pump-input input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.3);
+      color: white;
+      font-size: 1.5rem;
+      text-align: center;
+      font-weight: bold;
+    }
+    .pump-input input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .pump-input input:focus {
+      outline: none;
+      border-color: #00d4ff;
+    }
+    
+    .pump-btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .pump-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .pump-btn.start {
+      background: linear-gradient(135deg, #00ff88, #00cc6a);
+      color: #000;
+    }
+    .pump-btn.start:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0,255,136,0.4);
+    }
+    .pump-btn.stop {
+      background: linear-gradient(135deg, #ff4444, #cc0000);
+      color: white;
+    }
+    
+    .pump-progress {
+      margin-top: 15px;
+    }
+    .progress-bar {
+      height: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00d4ff, #00ff88);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 0.9rem;
+      color: #888;
+    }
+    .progress-text .amount { color: #00ff88; font-weight: bold; font-size: 1.2rem; }
+    
+    .log-panel {
+      max-width: 1400px;
+      margin: 40px auto 0;
+      background: rgba(0,0,0,0.3);
+      border-radius: 15px;
+      padding: 20px;
+    }
+    .log-panel h3 {
+      color: #00d4ff;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .log-entries {
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+    .log-entry {
+      padding: 5px 10px;
+      border-radius: 5px;
+      margin-bottom: 5px;
+    }
+    .log-entry.info { background: rgba(0,212,255,0.1); color: #00d4ff; }
+    .log-entry.success { background: rgba(0,255,136,0.1); color: #00ff88; }
+    .log-entry.warning { background: rgba(255,200,0,0.1); color: #ffc800; }
+    .log-entry.error { background: rgba(255,68,68,0.1); color: #ff4444; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⛽ MAESTRO-LITE Pump Simulator</h1>
+    <p>Scan RFID card to unlock pumps, then enter amount and start fueling</p>
+  </div>
+  
+  <div class="status-bar">
+    <div class="status-item" id="ws-status">
+      <div class="label">WebSocket</div>
+      <div class="value">Connecting...</div>
+    </div>
+    <div class="status-item">
+      <div class="label">Active Pumps</div>
+      <div class="value" id="active-pumps">0</div>
+    </div>
+    <div class="status-item">
+      <div class="label">Last RFID Scan</div>
+      <div class="value" id="last-scan">None</div>
+    </div>
+  </div>
+  
+  <div class="pumps-grid" id="pumps-grid">
+    <!-- Pumps will be generated here -->
+  </div>
+  
+  <div class="log-panel">
+    <h3>📋 Activity Log</h3>
+    <div class="log-entries" id="log-entries"></div>
+  </div>
+
+  <script>
+    const NUM_PUMPS = 4; // Show first 4 pumps for testing
+    const SERVER_URL = window.location.hostname + ':3000';
+    
+    // Pump state
+    const pumps = {};
+    let ws = null;
+    
+    // Initialize pumps
+    function initPumps() {
+      const grid = document.getElementById('pumps-grid');
+      grid.innerHTML = '';
+      
+      for (let i = 1; i <= NUM_PUMPS; i++) {
+        pumps[i] = {
+          status: 'locked',
+          attendant: null,
+          tagNumber: null,
+          amount: 0,
+          dispensed: 0,
+          fuelingInterval: null
+        };
+        
+        const card = document.createElement('div');
+        card.className = 'pump-card locked';
+        card.id = `pump-${i}`;
+        card.innerHTML = `
+          <div class="pump-header">
+            <div class="pump-number">Pump ${i}</div>
+            <div class="pump-status locked" id="status-${i}">🔒 Locked</div>
+          </div>
+          <div class="pump-attendant" id="attendant-${i}">
+            <div>Waiting for RFID scan...</div>
+          </div>
+          <div class="pump-input">
+            <label>Enter Amount (ZMW)</label>
+            <input type="number" id="amount-${i}" placeholder="0" min="1" max="5000" disabled>
+          </div>
+          <button class="pump-btn start" id="btn-${i}" disabled onclick="startFueling(${i})">
+            Start Fueling
+          </button>
+          <div class="pump-progress" id="progress-${i}" style="display:none">
+            <div class="progress-bar">
+              <div class="progress-fill" id="fill-${i}"></div>
+            </div>
+            <div class="progress-text">
+              <span>Dispensing...</span>
+              <span class="amount" id="dispensed-${i}">K0.00</span>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      }
+    }
+    
+    // Connect WebSocket
+    function connectWebSocket() {
+      const wsUrl = `ws://${SERVER_URL}/ws`;
+      addLog('info', `Connecting to ${wsUrl}...`);
+      
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        document.getElementById('ws-status').className = 'status-item connected';
+        document.getElementById('ws-status').querySelector('.value').textContent = 'Connected';
+        addLog('success', 'WebSocket connected to server');
+        
+        // Subscribe to pump events
+        ws.send(JSON.stringify({ type: 'subscribe', channel: 'pumps' }));
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleServerMessage(data);
+        } catch (e) {
+          console.error('Failed to parse message:', e);
+        }
+      };
+      
+      ws.onclose = () => {
+        document.getElementById('ws-status').className = 'status-item disconnected';
+        document.getElementById('ws-status').querySelector('.value').textContent = 'Disconnected';
+        addLog('error', 'WebSocket disconnected, reconnecting in 3s...');
+        setTimeout(connectWebSocket, 3000);
+      };
+      
+      ws.onerror = (error) => {
+        addLog('error', 'WebSocket error');
+      };
+    }
+    
+    // Handle messages from server
+    function handleServerMessage(data) {
+      console.log('Server message:', data);
+      
+      if (data.type === 'pumpUnlocked' || data.type === 'pumpAuthorized') {
+        // Pump was unlocked by RFID scan
+        const pumpId = data.pumpId || data.data?.pumpId;
+        const tagNumber = data.tagNumber || data.data?.tagNumber;
+        const attendantName = data.attendantName || data.data?.attendantName || 'Unknown';
+        
+        if (pumpId && pumpId <= NUM_PUMPS) {
+          unlockPump(pumpId, tagNumber, attendantName);
+        }
+      }
+      
+      if (data.type === 'rfidScan') {
+        // RFID scan detected — tag all nozzle-pumps this reader covers
+        document.getElementById('last-scan').textContent = data.tagNumber || 'Unknown';
+        const attendantName = data.attendantName || 'Unknown';
+        addLog('info', `RFID Scan: ${data.tagNumber} (${attendantName})`);
+        
+        // Unlock ALL pumps in the pumpIds array (nozzles of this physical pump)
+        const pumpIds = data.pumpIds || (data.pumpId ? [data.pumpId] : []);
+        for (const pumpId of pumpIds) {
+          if (pumpId && pumpId <= NUM_PUMPS) {
+            unlockPump(pumpId, data.tagNumber, attendantName);
+          }
+        }
+      }
+    }
+    
+    // Unlock a pump
+    function unlockPump(pumpId, tagNumber, attendantName) {
+      const pump = pumps[pumpId];
+      pump.status = 'unlocked';
+      pump.tagNumber = tagNumber;
+      pump.attendant = attendantName;
+      
+      const card = document.getElementById(`pump-${pumpId}`);
+      card.className = 'pump-card unlocked';
+      
+      document.getElementById(`status-${pumpId}`).className = 'pump-status unlocked';
+      document.getElementById(`status-${pumpId}`).textContent = '🔓 Unlocked';
+      
+      document.getElementById(`attendant-${pumpId}`).innerHTML = `
+        <div>Tag: <span class="tag">${tagNumber}</span></div>
+        <div>Attendant: <span class="name">${attendantName}</span></div>
+      `;
+      
+      document.getElementById(`amount-${pumpId}`).disabled = false;
+      document.getElementById(`btn-${pumpId}`).disabled = false;
+      
+      updateActivePumps();
+      addLog('success', `Pump ${pumpId} UNLOCKED for ${attendantName} (${tagNumber})`);
+      
+      // Auto-lock after 60 seconds if not used
+      setTimeout(() => {
+        if (pumps[pumpId].status === 'unlocked') {
+          lockPump(pumpId);
+          addLog('warning', `Pump ${pumpId} auto-locked (timeout)`);
+        }
+      }, 60000);
+    }
+    
+    // Lock a pump
+    function lockPump(pumpId) {
+      const pump = pumps[pumpId];
+      pump.status = 'locked';
+      pump.tagNumber = null;
+      pump.attendant = null;
+      pump.amount = 0;
+      pump.dispensed = 0;
+      
+      const card = document.getElementById(`pump-${pumpId}`);
+      card.className = 'pump-card locked';
+      
+      document.getElementById(`status-${pumpId}`).className = 'pump-status locked';
+      document.getElementById(`status-${pumpId}`).textContent = '🔒 Locked';
+      
+      document.getElementById(`attendant-${pumpId}`).innerHTML = '<div>Waiting for RFID scan...</div>';
+      document.getElementById(`amount-${pumpId}`).value = '';
+      document.getElementById(`amount-${pumpId}`).disabled = true;
+      document.getElementById(`btn-${pumpId}`).disabled = true;
+      document.getElementById(`btn-${pumpId}`).textContent = 'Start Fueling';
+      document.getElementById(`btn-${pumpId}`).className = 'pump-btn start';
+      document.getElementById(`progress-${pumpId}`).style.display = 'none';
+      
+      updateActivePumps();
+    }
+    
+    // Start fueling
+    async function startFueling(pumpId) {
+      const pump = pumps[pumpId];
+      const amountInput = document.getElementById(`amount-${pumpId}`);
+      const amount = parseFloat(amountInput.value);
+      
+      if (!amount || amount <= 0) {
+        alert('Please enter a valid amount');
+        return;
+      }
+      
+      // Disable button while authorizing
+      const btn = document.getElementById(`btn-${pumpId}`);
+      btn.disabled = true;
+      btn.textContent = 'Authorizing...';
+      
+      addLog('info', `Pump ${pumpId} - Sending K${amount} authorization to PTS...`);
+      
+      // FIRST: Lock all other pumps that were unlocked with the same RFID tag
+      const currentTag = pump.tagNumber;
+      for (let i = 1; i <= NUM_PUMPS; i++) {
+        if (i !== pumpId && pumps[i].tagNumber === currentTag && pumps[i].status === 'unlocked') {
+          lockPump(i);
+          addLog('info', `Pump ${i} auto-locked (another pump selected)`);
+        }
+      }
+      
+      // THEN: Send authorization to server → PTS
+      try {
+        const response = await fetch(`http://${SERVER_URL}/api/pump-simulator/authorize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pumpId,
+            amount,
+            tagNumber: pump.tagNumber,
+            attendantId: pump.attendantId,
+            attendantName: pump.attendant
+          })
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+          addLog('error', `PTS Authorization failed: ${result.error}`);
+          btn.disabled = false;
+          btn.textContent = 'Start Fueling';
+          return;
+        }
+        
+        addLog('success', `✅ PTS Authorized: Pump ${pumpId} for K${amount}`);
+        pump.authorizationId = result.authorizationId;
+        
+      } catch (error) {
+        addLog('error', `Network error: ${error.message}`);
+        btn.disabled = false;
+        btn.textContent = 'Start Fueling';
+        return;
+      }
+      
+      // THEN: Start fueling simulation
+      pump.status = 'fueling';
+      pump.amount = amount;
+      pump.dispensed = 0;
+      
+      const card = document.getElementById(`pump-${pumpId}`);
+      card.className = 'pump-card fueling';
+      
+      document.getElementById(`status-${pumpId}`).className = 'pump-status fueling';
+      document.getElementById(`status-${pumpId}`).textContent = '⛽ Fueling';
+      
+      amountInput.disabled = true;
+      btn.disabled = false;
+      btn.textContent = 'Stop';
+      btn.className = 'pump-btn stop';
+      btn.onclick = () => stopFueling(pumpId);
+      
+      document.getElementById(`progress-${pumpId}`).style.display = 'block';
+      
+      addLog('warning', `Pump ${pumpId} FUELING started - Target: K${pump.amount}, Dispensed: K${pump.dispensed}`);
+      
+      // Simulate fueling (dispense K10 every 200ms for smoother progress)
+      pump.fuelingInterval = setInterval(() => {
+        const increment = 10; // K10 per tick
+        const remaining = pump.amount - pump.dispensed;
+        
+        console.log(`Pump ${pumpId}: amount=${pump.amount}, dispensed=${pump.dispensed}, remaining=${remaining}`);
+        
+        if (remaining <= 0) {
+          completeFueling(pumpId);
+          return;
+        }
+        
+        // Add either the full increment or just what's remaining
+        pump.dispensed += Math.min(increment, remaining);
+        
+        const progress = Math.min((pump.dispensed / pump.amount) * 100, 100);
+        
+        document.getElementById(`fill-${pumpId}`).style.width = progress + '%';
+        document.getElementById(`dispensed-${pumpId}`).textContent = `K${pump.dispensed.toFixed(2)}`;
+        
+        if (pump.dispensed >= pump.amount) {
+          completeFueling(pumpId);
+        }
+      }, 200);  // 200ms interval for K10 increments (K50/sec)
+    }
+    
+    // Stop fueling manually
+    function stopFueling(pumpId) {
+      completeFueling(pumpId);
+    }
+    
+    // Complete fueling and record transaction
+    function completeFueling(pumpId) {
+      const pump = pumps[pumpId];
+      
+      if (pump.fuelingInterval) {
+        clearInterval(pump.fuelingInterval);
+        pump.fuelingInterval = null;
+      }
+      
+      const finalAmount = pump.dispensed;
+      const tagNumber = pump.tagNumber;
+      const attendant = pump.attendant;
+      
+      addLog('success', `Pump ${pumpId} COMPLETE - Dispensed: K${finalAmount} | Tag: ${tagNumber}`);
+      
+      // Send transaction to server
+      sendTransaction(pumpId, finalAmount, tagNumber, attendant);
+      
+      // Reset pump after 2 seconds
+      setTimeout(() => {
+        lockPump(pumpId);
+      }, 2000);
+    }
+    
+    // Send completed transaction to server
+    async function sendTransaction(pumpId, amount, tagNumber, attendant) {
+      try {
+        const response = await fetch(`http://${SERVER_URL}/api/pump-simulator/transaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pumpId,
+            amount,
+            tagNumber,
+            attendant,
+            timestamp: new Date().toISOString()
+          })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          addLog('success', `Transaction recorded: ID=${result.transactionId}`);
+        } else {
+          addLog('error', `Failed to record: ${result.error}`);
+        }
+      } catch (error) {
+        addLog('error', `Network error: ${error.message}`);
+      }
+    }
+    
+    // Update active pumps count
+    function updateActivePumps() {
+      const active = Object.values(pumps).filter(p => p.status !== 'locked').length;
+      document.getElementById('active-pumps').textContent = active;
+    }
+    
+    // Add log entry
+    function addLog(level, message) {
+      const entries = document.getElementById('log-entries');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${level}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      entries.insertBefore(entry, entries.firstChild);
+      
+      // Keep only last 50 entries
+      while (entries.children.length > 50) {
+        entries.removeChild(entries.lastChild);
+      }
+    }
+    
+    // Initialize on load
+    window.onload = () => {
+      initPumps();
+      connectWebSocket();
+      addLog('info', 'Pump simulator initialized');
+    };
+  </script>
+</body>
+</html>

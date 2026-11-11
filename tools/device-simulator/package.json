@@ -1,0 +1,14 @@
+{
+  "name": "maestro-device-simulator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Simulates a site controller / ATG publishing telemetry to Maestro over MQTT, with store-and-forward buffering.",
+  "type": "module",
+  "scripts": {
+    "start": "node simulator.mjs",
+    "selftest": "node simulator.mjs --selftest"
+  },
+  "dependencies": {
+    "mqtt": "^5.10.0"
+  }
+}

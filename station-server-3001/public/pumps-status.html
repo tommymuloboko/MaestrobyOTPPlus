@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTS Live Pump Status</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: white;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 2.5rem;
+      color: #00d4ff;
+      text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    }
+    .header p { color: #888; margin-top: 10px; }
+    
+    .status-bar {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      max-width: 1400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .status-item {
+      background: rgba(255,255,255,0.1);
+      padding: 15px 25px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .status-item .label { font-size: 0.8rem; color: #888; }
+    .status-item .value { font-size: 1.5rem; font-weight: bold; margin-top: 5px; }
+    .status-item.connected .value { color: #00ff88; }
+    .status-item.disconnected .value { color: #ff4444; }
+    
+    .pumps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .pump-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      padding: 20px;
+      border: 2px solid rgba(255,255,255,0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .pump-card.active {
+      border-color: rgba(0,255,136,0.5);
+      background: rgba(0,255,136,0.05);
+      box-shadow: 0 0 30px rgba(0,255,136,0.2);
+    }
+    
+    .pump-card.fueling {
+      border-color: rgba(255,200,0,0.5);
+      background: rgba(255,200,0,0.05);
+      animation: pulse 1s infinite;
+    }
+    
+    .pump-card.finished {
+      border-color: rgba(100,100,100,0.5);
+      background: rgba(100,100,100,0.05);
+      opacity: 0.7;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(255,200,0,0.3); }
+      50% { box-shadow: 0 0 40px rgba(255,200,0,0.6); }
+    }
+    
+    .pump-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+      padding-bottom: 10px;
+    }
+    
+    .pump-number {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #00d4ff;
+    }
+    
+    .pump-state {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      background: rgba(100,100,100,0.5);
+    }
+    
+    .pump-state.active { background: #00ff88; color: #000; }
+    .pump-state.fueling { background: #ffc800; color: #000; }
+    
+    .pump-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+    
+    .info-item {
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    
+    .info-label {
+      color: #888;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+    
+    .info-value {
+      color: #00ff88;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    
+    .info-value.amount { color: #ffd700; }
+    .info-value.flow { color: #FF6B9D; }
+    .info-value.grade { color: #00d4ff; }
+    
+    .last-transaction {
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 15px;
+      border-left: 3px solid #00d4ff;
+      font-size: 0.85rem;
+    }
+    
+    .last-transaction .label { color: #888; margin-bottom: 5px; }
+    .last-transaction .transaction {
+      line-height: 1.6;
+      color: #aaa;
+    }
+    .last-transaction .transaction strong { color: #00ff88; }
+    
+    .error {
+      background: rgba(255,68,68,0.1);
+      border-color: rgba(255,68,68,0.5);
+      color: #ff6666;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.1);
+      border-top: 4px solid #00d4ff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .last-update {
+      text-align: center;
+      color: #888;
+      margin-top: 30px;
+      font-size: 0.9rem;
+    }
+    
+    .last-update .time {
+      color: #00d4ff;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⛽ PTS Live Pump Status</h1>
+    <p>Real-time pump data from PTS-2 Controller</p>
+  </div>
+  
+  <div class="status-bar">
+    <div class="status-item" id="connection-status">
+      <div class="label">Connection Status</div>
+      <div class="value disconnected">⚪ Connecting...</div>
+    </div>
+    <div class="status-item">
+      <div class="label">Active Pumps</div>
+      <div class="value" id="active-count">0</div>
+    </div>
+    <div class="status-item">
+      <div class="label">Total Pumps</div>
+      <div class="value" id="total-count">0</div>
+    </div>
+    <div class="status-item">
+      <div class="label">Last Update</div>
+      <div class="value" id="last-update-time">N/A</div>
+    </div>
+  </div>
+  
+  <div id="pumps-container" class="pumps-grid">
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Loading pump data...</p>
+    </div>
+  </div>
+  
+  <div class="last-update">
+    Updating every 1 second • Last sync: <span class="time" id="sync-time">N/A</span>
+  </div>
+
+  <script>
+    const API_URL = `http://${window.location.hostname}:${window.location.port || 3000}`;
+    const REFRESH_INTERVAL = 1000; // 1 second
+    
+    let lastData = null;
+    let updateTimer;
+    
+    async function fetchPumpData() {
+      try {
+        const response = await fetch(`${API_URL}/api/pts/pumps`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        updateUI(data);
+        setConnectionStatus(true);
+      } catch (error) {
+        console.error('Error fetching pump data:', error);
+        setConnectionStatus(false);
+        document.getElementById('pumps-container').innerHTML = 
+          `<div class="error" style="grid-column: 1/-1; padding: 20px; text-align: center;">
+            ❌ Failed to fetch pump data: ${error.message}
+          </div>`;
+      }
+    }
+    
+    function setConnectionStatus(connected) {
+      const statusEl = document.getElementById('connection-status');
+      const valueEl = statusEl.querySelector('.value');
+      if (connected) {
+        statusEl.classList.remove('disconnected');
+        statusEl.classList.add('connected');
+        valueEl.textContent = '🟢 Connected';
+      } else {
+        statusEl.classList.remove('connected');
+        statusEl.classList.add('disconnected');
+        valueEl.textContent = '🔴 Disconnected';
+      }
+    }
+    
+    function updateUI(data) {
+      lastData = data;
+      
+      // Update counts
+      const pumps = data.data || [];
+      document.getElementById('total-count').textContent = pumps.length;
+      
+      const activePumps = pumps.filter(p => {
+        const state = p.State?.toLowerCase() || '';
+        return state !== 'finished' && (p.Nozzle > 0 || p.NozzleUp > 0);
+      }).length;
+      document.getElementById('active-count').textContent = activePumps;
+      
+      // Update timestamp
+      if (data.timestamp) {
+        const date = new Date(data.timestamp);
+        document.getElementById('last-update-time').textContent = date.toLocaleTimeString();
+        document.getElementById('sync-time').textContent = date.toLocaleTimeString();
+      }
+      
+      // Update pump cards
+      const container = document.getElementById('pumps-container');
+      container.innerHTML = '';
+      
+      pumps.forEach(pump => {
+        const card = createPumpCard(pump);
+        container.appendChild(card);
+      });
+    }
+    
+    function createPumpCard(pump) {
+      const card = document.createElement('div');
+      card.className = 'pump-card';
+      
+      // Determine pump state
+      const state = pump.State?.toLowerCase() || '';
+      const isActive = state !== 'finished' && (pump.Nozzle > 0 || pump.NozzleUp > 0);
+      const isFueling = isActive;
+      
+      if (isFueling) {
+        card.classList.add('fueling');
+      } else if (state === 'finished') {
+        card.classList.add('finished');
+      } else if (isActive) {
+        card.classList.add('active');
+      }
+      
+      // Get fuel grade name
+      const fuelGrade = pump.LastFuelGradeName || 'Unknown';
+      const fuelGradeId = pump.LastFuelGradeId || 'N/A';
+      
+      // Format last transaction datetime
+      let lastTransactionTime = 'N/A';
+      if (pump.LastDateTime) {
+        try {
+          const date = new Date(pump.LastDateTime);
+          lastTransactionTime = date.toLocaleString();
+        } catch (e) {
+          lastTransactionTime = pump.LastDateTime;
+        }
+      }
+      
+      card.innerHTML = `
+        <div class="pump-header">
+          <div class="pump-number">PUMP ${pump.Pump || pump.pump}</div>
+          <div class="pump-state ${isFueling ? 'fueling' : (isActive ? 'active' : '')}">
+            ${state === 'finished' ? '⏹️ Finished' : (isFueling ? '⛽ Fueling' : '⚪ Idle')}
+          </div>
+        </div>
+        
+        <div class="pump-info">
+          <div class="info-item">
+            <div class="info-label">Nozzle</div>
+            <div class="info-value">${pump.Nozzle || 0}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Fuel Grade</div>
+            <div class="info-value grade">${fuelGrade}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Last Volume</div>
+            <div class="info-value">${(pump.LastVolume || 0).toFixed(2)} L</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Last Amount</div>
+            <div class="info-value amount">K${(pump.LastAmount || 0).toFixed(2)}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Flow Rate</div>
+            <div class="info-value flow">${pump.LastFlowRate || 0} L/min</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Price/L</div>
+            <div class="info-value">${(pump.LastPrice || 0).toFixed(2)}</div>
+          </div>
+        </div>
+        
+        <div class="last-transaction">
+          <div class="label">📊 Last Transaction</div>
+          <div class="transaction">
+            <strong>ID:</strong> ${pump.LastTransaction || 'N/A'}<br>
+            <strong>Volume:</strong> ${(pump.LastVolume || 0).toFixed(2)} L<br>
+            <strong>Amount:</strong> K${(pump.LastAmount || 0).toFixed(2)}<br>
+            <strong>Time:</strong> ${lastTransactionTime}<br>
+            <strong>User:</strong> ${pump.LastUser || 'System'}
+          </div>
+        </div>
+      `;
+      
+      return card;
+    }
+    
+    // Start polling
+    function startPolling() {
+      fetchPumpData(); // Initial fetch
+      updateTimer = setInterval(fetchPumpData, REFRESH_INTERVAL);
+    }
+    
+    // Cleanup on unload
+    window.addEventListener('beforeunload', () => {
+      if (updateTimer) clearInterval(updateTimer);
+    });
+    
+    // Initialize on page load
+    window.addEventListener('load', startPolling);
+  </script>
+</body>
+</html>

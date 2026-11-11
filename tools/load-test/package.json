@@ -1,0 +1,12 @@
+{
+  "name": "maestro-load-test",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node loadtest.mjs"
+  },
+  "dependencies": {
+    "autocannon": "^9.0.0"
+  }
+}

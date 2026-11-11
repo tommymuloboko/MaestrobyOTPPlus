@@ -1,0 +1,15 @@
+node_modules/
+dist/
+target/
+build/
+.gradle/
+.env
+.env.*
+!.env.prod.example
+*.log
+logs/
+local.properties
+*.jks
+*.keystore
+.idea/
+.vscode/

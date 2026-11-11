@@ -1,0 +1,65 @@
+name: maestro
+
+# Local stack for development. Credentials here are throwaway development values, never use them elsewhere.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: maestro
+      POSTGRES_USER: maestro
+      POSTGRES_PASSWORD: maestro_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maestro -d maestro"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: maestro
+      RABBITMQ_DEFAULT_PASS: maestro_dev
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # External MQTT broker for device telemetry. Use with: MAESTRO_MQTT_EMBEDDED=false MAESTRO_MQTT_PORT=1884
+  emqx:
+    image: emqx/emqx:5.8.0
+    ports:
+      - "1884:1883"
+      - "18083:18083"
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Fraud scoring service. The API calls it when maestro.sentinel.ai-url is set.
+  sentinel-ai:
+    build: ./sentinel-ai
+    ports:
+      - "8090:8090"
+    profiles: ["ai"]
+
+volumes:
+  pgdata:
