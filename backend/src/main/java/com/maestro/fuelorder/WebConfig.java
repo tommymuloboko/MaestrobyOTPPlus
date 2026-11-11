@@ -18,9 +18,12 @@ public class WebConfig {
      * filter so 401 responses also carry CORS headers; in production the gateway owns this.
      */
     @Bean
-    public FilterRegistrationBean<CorsFilter> corsFilter() {
+    public FilterRegistrationBean<CorsFilter> corsFilter(
+            @org.springframework.beans.factory.annotation.Value("${maestro.cors.allowed-origins:}") List<String> extraOrigins) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        List<String> origins = new java.util.ArrayList<>(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        extraOrigins.stream().map(String::trim).filter(o -> !o.isEmpty()).forEach(origins::add);
+        config.setAllowedOriginPatterns(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
 
