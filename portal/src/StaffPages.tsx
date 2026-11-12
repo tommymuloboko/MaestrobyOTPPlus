@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, type Registered, type Session, type Site } from './api';
 import { ADMIN_ROLE, OMC_ROLE, isFinanceRole, isSupplierRole } from './customerData';
 import CountryCurrencyFields from './CountryCurrencyFields';
-import TankGauge from './TankGauge';
-import { numberTanks, tankKey } from './tanks';
+import { Pts2ConnectionPage, Pts2PricesPage } from './Pts2Pages';
 import { currencyOf, loadCurrencies, money, moneyFor } from './currency';
 import Deliveries from './DeliveryPages';
 import FinancePages from './FinancePages';
 import { Reconciliation, Sentinel } from './OpsPages';
 import {
-  Field, Notice, PageHead, Rows, Select, StatStrip, StatusChip, errorText, num, useAction, useLoad, when,
+  Field, Notice, PageHead, Rows, Select, StatStrip, StatusChip, num, useAction, useLoad, when,
 } from './ui';
 
 /* ── navigation: which staff roles can open which page ───────── */
@@ -20,6 +19,8 @@ const ALL_STAFF = ['Station Manager', 'Attendant', 'Finance', ADMIN_ROLE, OMC_RO
 export const STAFF_NAV: NavEntry[] = [
   { key: 'deliveries', icon: 'truck', label: 'Deliveries', title: 'Deliveries', group: 'Operations', roles: ALL_STAFF },
   { key: 'reconciliation', icon: 'scale', label: 'Reconciliation', title: 'Daily reconciliation', group: 'Operations', roles: ALL_STAFF },
+  { key: 'pts2', icon: 'device', label: 'PTS-2 Connection', title: 'PTS-2 connection', group: 'Operations', roles: ['Station Manager', ADMIN_ROLE] },
+  { key: 'pump-prices', icon: 'tag', label: 'Pump Prices', title: 'Pump prices', group: 'Operations', roles: ['Station Manager', ADMIN_ROLE] },
   { key: 'devices', icon: 'device', label: 'Integrations / Devices', title: 'Integrations & devices', group: 'Operations', roles: ALL_STAFF },
   { key: 'cctv', icon: 'camera', label: 'CCTV events', title: 'CCTV events', group: 'Operations', roles: ALL_STAFF },
   { key: 'insights', icon: 'insights', label: 'Insights', title: 'Insights', group: 'Operations', roles: ALL_STAFF },
@@ -610,33 +611,6 @@ export function Messages() {
   );
 }
 
-/* ── live tank gauges (Tanks page and Wetstock page) ────────── */
-export function StockCards() {
-  const stock = useLoad(api.stock);
-  const readings = useLoad(api.tankReadings);
-  const sites = useLoad(api.listSites);
-  if (stock.loading) return <section className="card"><div className="empty">Loading tanks…</div></section>;
-  if (stock.error) return <div className="error inline">{errorText(stock.error)}</div>;
-  const latest = (site: string, product: string) => (readings.data ?? []).find((r) => r.siteCode === site && r.product === product);
-  const siteName = (code: string) => (sites.data ?? []).find((s) => s.code === code)?.name ?? code;
-  // tanks are numbered within their site, in the order the API returns them
-  const numbers = numberTanks(stock.data ?? []);
-  return (
-    <div className="tank-grid">
-      {(stock.data ?? []).map((t) => {
-        const r = latest(t.siteCode, t.product);
-        const tankNo = numbers.get(tankKey(t.siteCode, t.product)) ?? 1;
-        return (
-          <TankGauge key={`${t.siteCode}-${t.product}`} product={t.product} tankNo={tankNo} site={siteName(t.siteCode)}
-            percent={Number(t.percent)} bookLitres={Number(t.bookLitres)} capacityLitres={Number(t.capacityLitres)}
-            reorderLitres={Number(t.reorderLitres)} temperatureC={r?.temperatureC} waterMm={r?.waterMm} belowReorder={t.belowReorder} />
-        );
-      })}
-      {(stock.data ?? []).length === 0 && <section className="card"><div className="empty">No tanks configured.</div></section>}
-    </div>
-  );
-}
-
 export default function StaffPages({ page, user, sites }: { page: string; user: Session; sites: Site[] }) {
   switch (page) {
     case 'orgs': return <Organizations />;
@@ -646,6 +620,8 @@ export default function StaffPages({ page, user, sites }: { page: string; user: 
     case 'sentinel': return <Sentinel />;
     case 'audit': return <Audit />;
     case 'devices': return <Devices />;
+    case 'pts2': return <Pts2ConnectionPage sites={sites} canEdit={user.role === ADMIN_ROLE} />;
+    case 'pump-prices': return <Pts2PricesPage sites={sites} canEdit={user.role === ADMIN_ROLE} />;
     case 'reconciliation': return <Reconciliation sites={sites} />;
     case 'deliveries': return <Deliveries user={user} sites={sites} />;
     case 'cctv': return <Cctv user={user} sites={sites} />;

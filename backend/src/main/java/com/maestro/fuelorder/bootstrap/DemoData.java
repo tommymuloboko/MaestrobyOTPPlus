@@ -13,8 +13,6 @@ import com.maestro.fuelorder.registry.Driver;
 import com.maestro.fuelorder.registry.DriverRepository;
 import com.maestro.fuelorder.registry.Vehicle;
 import com.maestro.fuelorder.registry.VehicleRepository;
-import com.maestro.fuelorder.stock.Tank;
-import com.maestro.fuelorder.stock.TankRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -35,7 +33,6 @@ public class DemoData implements CommandLineRunner {
     private final BranchRepository branches;
     private final VehicleRepository vehicles;
     private final DriverRepository drivers;
-    private final TankRepository tanks;
     private final ListPriceRepository listPrices;
     private final PriceRuleRepository rules;
     private final PriceHistoryRepository history;
@@ -44,7 +41,7 @@ public class DemoData implements CommandLineRunner {
 
     public DemoData(OrganizationRepository orgs, AppUserRepository users, CreditAccountRepository credit,
                     BranchRepository branches, VehicleRepository vehicles, DriverRepository drivers,
-                    TankRepository tanks, ListPriceRepository listPrices, PriceRuleRepository rules,
+                    ListPriceRepository listPrices, PriceRuleRepository rules,
                     PriceHistoryRepository history, TaxRateRepository taxRates, ApprovalPolicyRepository policies) {
         this.orgs = orgs;
         this.users = users;
@@ -52,7 +49,6 @@ public class DemoData implements CommandLineRunner {
         this.branches = branches;
         this.vehicles = vehicles;
         this.drivers = drivers;
-        this.tanks = tanks;
         this.listPrices = listPrices;
         this.rules = rules;
         this.history = history;
@@ -62,6 +58,10 @@ public class DemoData implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        // Seed only an empty database; re-seeding a persistent one violates unique keys and
+        // would overwrite live data such as changed passwords.
+        if (orgs.count() > 0) return;
+
         String acme = "Acme Logistics";
         String buildco = "BuildCo Mining";
         String supplier = OrderService.SUPPLIER_ORG;
@@ -115,10 +115,7 @@ public class DemoData implements CommandLineRunner {
         ds.stream().filter(d -> !d.getName().equals("R. Naidoo")).forEach(d -> d.verify("Seed data"));
         drivers.saveAll(ds);
 
-        for (String site : List.of("SITE-JHB-001", "SITE-CPT-002", "SITE-DBN-003")) {
-            tanks.save(new Tank(site, "DIESEL_50", new BigDecimal("60000"), new BigDecimal("42000"), new BigDecimal("12000")));
-            tanks.save(new Tank(site, "ULP_95", new BigDecimal("30000"), new BigDecimal("18000"), new BigDecimal("6000")));
-        }
+        // no demo tanks: live tank readings come from each site's PTS-2 controller (see the pts2 package)
 
         LocalDate start = LocalDate.now().minusDays(30);
         listPrices.saveAll(List.of(

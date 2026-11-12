@@ -10,7 +10,8 @@ import {
 } from './OmcPages';
 import { CustomerBalances, ReportsAnalytics } from './OmcReports';
 import { Reconciliation, Sentinel } from './OpsPages';
-import StaffPages, { StockCards } from './StaffPages';
+import StaffPages from './StaffPages';
+import { LiveTanks, Pts2ConnectionPage, Pts2PricesPage } from './Pts2Pages';
 import TankTrends from './TankTrends';
 import UsersAdmin from './UsersAdmin';
 import { Ic, Notice, PageHead, StatStrip, StatusChip, Tabs, money, num, useLoad, when } from './ui';
@@ -27,6 +28,8 @@ export const OMC_NAV: OmcNavEntry[] = [
   { key: 'omc-vehicles', icon: 'truck', label: 'Vehicle Management', sub: 'Register vehicles, set tank capacities, track fuelling history' },
   { key: 'omc-facilities', icon: 'warehouse', label: 'Facilities Management', sub: 'Stations, depots and fuel depots' },
   { key: 'omc-inventory', icon: 'tank', label: 'Tanks', sub: 'ATG tanks, stock levels, deliveries and variances' },
+  { key: 'omc-pts2', icon: 'device', label: 'PTS-2 Connection', sub: 'Connect each site’s PTS-2 controller to read its tanks live' },
+  { key: 'omc-prices', icon: 'tag', label: 'Pump Prices', sub: 'Change PTS-2 pump prices now or schedule a price change' },
   { key: 'omc-pumps', icon: 'gauge', label: 'Pump & Meter Monitoring', sub: 'Live dispensing, equipment status and connectivity' },
   { key: 'omc-otp', icon: 'key', label: 'OTP Management', sub: 'Issue, revoke, regenerate and monitor OTP authorizations' },
   { key: 'omc-fraud', icon: 'alert', label: 'Fraud & Risk Centre', sub: 'Suspicious transactions and investigations' },
@@ -230,7 +233,7 @@ function Inventory({ user, sites }: { user: Session; sites: Site[] }) {
     <>
       <PageHead icon="tank" title="Tanks" sub="ATG tanks, stock levels, deliveries and variances" />
       <Tabs tabs={[['tanks', 'Tanks'], ['trends', 'Tank trends'], ['recon', 'Reconciliation'], ['deliveries', 'Deliveries']]} value={tab} onChange={setTab} />
-      {tab === 'tanks' && <StockCards />}
+      {tab === 'tanks' && <LiveTanks />}
       {tab === 'trends' && <TankTrends />}
       {tab === 'recon' && <Reconciliation sites={sites} />}
       {tab === 'deliveries' && <Deliveries user={user} sites={sites} />}
@@ -343,6 +346,8 @@ export default function OmcConsole({ page, user, sites, orders, vehicles, driver
       case 'omc-vehicles': return <VehicleManagement vehicles={vehicles} orders={orders} transactions={transactions} loaded={loaded} reload={reload} />;
       case 'omc-facilities': return <Facilities sites={sites} reloadSites={reloadSites} />;
       case 'omc-inventory': return <Inventory user={user} sites={sites} />;
+      case 'omc-pts2': return <><PageHead icon="device" title="PTS-2 Connection" sub="Connect each site's PTS-2 controller to read its tanks live" /><Pts2ConnectionPage sites={sites} canEdit /></>;
+      case 'omc-prices': return <><PageHead icon="tag" title="Pump Prices" sub="Change PTS-2 pump prices now or schedule a price change" /><Pts2PricesPage sites={sites} canEdit /></>;
       case 'omc-pumps': return <StaffPages page="devices" user={user} sites={sites} />;
       case 'omc-otp': return <OtpManagement orders={orders} />;
       case 'omc-fraud': return <FraudRisk user={user} sites={sites} />;

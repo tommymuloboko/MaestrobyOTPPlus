@@ -20,7 +20,8 @@ import CustomerPages from './CustomerPages';
 import Deliveries from './DeliveryPages';
 import FleetPages from './FleetPages';
 import OrderPages from './OrderPages';
-import StaffPages, { Messages, STAFF_NAV, StockCards, staffPageAllowed } from './StaffPages';
+import StaffPages, { Messages, STAFF_NAV, staffPageAllowed } from './StaffPages';
+import { LiveTanks } from './Pts2Pages';
 import { CUSTOMER_ROLE, OMC_ROLE, buildAlerts, isOmcRole } from './customerData';
 import OmcConsole, { OMC_HOME, OMC_NAV } from './OmcConsole';
 import { loadCurrencies, money, moneyFor } from './currency';
@@ -629,7 +630,7 @@ function Portal({ user, onLogout }: { user: Session; onLogout: () => void }) {
       case 'wetstock':
         return (
           <>
-            <StockCards />
+            <LiveTanks />
             <div className="row-2">
               {chartCard}
               {loadingCard}

@@ -106,6 +106,39 @@ export interface TankReading {
   waterMm: number | null; tcVolumeLitres: number | null; at: string;
 }
 export interface PumpEvent { id: string; siteCode: string; pumpId: string; kind: string; value: number | null; at: string }
+/** How the API reaches a site's PTS-2 controller, plus its latest poll. The password is never returned. */
+export interface Pts2Connection {
+  siteCode: string; url: string; username: string; enabled: boolean; updatedAt: string;
+  ok: boolean | null; error: string | null; polledAt: string | null; lastSuccessAt: string | null;
+  controllerId: string | null; tankCount: number;
+}
+/** One tank as its PTS-2 reports it; values the probe does not measure are null. */
+export interface Pts2Tank {
+  tank: number; fuelGradeId: number | null; fuelGradeName: string | null; product: string; status: string;
+  alarms: string[]; productHeightMm: number | null; waterHeightMm: number | null; temperatureC: number | null;
+  volumeLitres: number | null; tcVolumeLitres: number | null; waterVolumeLitres: number | null;
+  ullageLitres: number | null; capacityLitres: number | null; percent: number | null; tankHeightMm: number | null;
+  measuredAt: string;
+}
+export interface Pts2SiteState {
+  siteCode: string; ok: boolean; error: string | null; polledAt: string; lastSuccessAt: string | null;
+  controllerId: string | null; tanks: Pts2Tank[];
+}
+export interface Pts2ConnectionInput { url: string; username: string; password: string; enabled: boolean }
+/** Fuel grade prices and the prices scheduler, read live from a site's PTS-2. Times are the controller's local time. */
+export interface Pts2Grade { id: number; name: string; price: number | null }
+export interface Pts2PriceSchedule {
+  id: number; enabled: boolean; fuelGradeId: number; fuelGradeName: string | null; price: number | null;
+  dateTime: string | null; days: string[]; pending: boolean;
+}
+export interface Pts2Prices { siteCode: string; controllerTime: string; grades: Pts2Grade[]; schedules: Pts2PriceSchedule[]; freeSlots: number }
+export interface Pts2PriceChange {
+  id: string; siteCode: string; fuelGradeId: number; fuelGradeName: string | null; previousPrice: number | null;
+  newPrice: number; mode: 'IMMEDIATE' | 'SCHEDULED' | 'CANCELLED'; effectiveAt: string; scheduleId: number | null;
+  changedBy: string; at: string;
+}
+/** No effectiveAt changes the prices now. */
+export interface Pts2PriceInput { changes: { fuelGradeId: number; price: number }[]; effectiveAt?: string }
 
 export interface ReconRun {
   id: string; siteCode: string; businessDate: string; status: string; dispensedLitres: number;
@@ -501,6 +534,21 @@ export const api = {
   devices: () => request<DeviceStatus[]>('/telemetry/devices'),
   tankReadings: () => request<TankReading[]>('/telemetry/tanks'),
   pumpEvents: () => request<PumpEvent[]>('/telemetry/pumps'),
+
+  // PTS-2 controllers (live tanks)
+  pts2Connections: () => request<Pts2Connection[]>('/pts2/connections'),
+  savePts2Connection: (siteCode: string, payload: Pts2ConnectionInput) =>
+    request<Pts2Connection>(`/pts2/connections/${encodeURIComponent(siteCode)}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deletePts2Connection: (siteCode: string) =>
+    request<void>(`/pts2/connections/${encodeURIComponent(siteCode)}`, { method: 'DELETE' }),
+  testPts2Connection: (siteCode: string) => post<Pts2SiteState>(`/pts2/connections/${encodeURIComponent(siteCode)}/test`),
+  pts2Tanks: () => request<Pts2SiteState[]>('/pts2/tanks'),
+  pts2Prices: (siteCode: string) => request<Pts2Prices>(`/pts2/prices/${encodeURIComponent(siteCode)}`),
+  changePts2Prices: (siteCode: string, payload: Pts2PriceInput) =>
+    request<Pts2Prices>(`/pts2/prices/${encodeURIComponent(siteCode)}`, { method: 'POST', body: JSON.stringify(payload) }),
+  cancelPts2PriceSchedule: (siteCode: string, scheduleId: number) =>
+    request<Pts2Prices>(`/pts2/prices/${encodeURIComponent(siteCode)}/schedules/${scheduleId}`, { method: 'DELETE' }),
+  pts2PriceHistory: (siteCode: string) => request<Pts2PriceChange[]>(`/pts2/prices/${encodeURIComponent(siteCode)}/history`),
 
   // reconciliation
   reconRuns: () => request<ReconRun[]>('/reconciliation/runs'),

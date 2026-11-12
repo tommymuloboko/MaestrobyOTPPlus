@@ -2,9 +2,8 @@ import { useId } from 'react';
 import { productName } from './tanks';
 import { Ic, num } from './ui';
 
-/** The scale is drawn over a 3 m tank height, so the metre reading is the fill level on that scale. */
-const SCALE_METRES = 3;
-const MAJOR_TICKS = [0, 0.5, 1, 1.5, 2, 2.5, 3];
+/** Without a known tank height the scale is drawn over 3 m, so the metre reading is the fill level on that scale. */
+const DEFAULT_SCALE_METRES = 3;
 
 // the interior of the tank in the drawing, which is where the liquid and the scale line up
 const IN = { x: 34, y: 46, w: 204, h: 98 };
@@ -30,21 +29,32 @@ export interface TankGaugeProps {
   temperatureC?: number | null;
   waterMm?: number | null;
   belowReorder?: boolean;
+  /** Product height measured by the probe; when given, the marker shows it instead of a level derived from percent. */
+  productHeightMm?: number | null;
+  /** Configured tank height; sets the scale. */
+  tankHeightMm?: number | null;
+  /** Extra line under the gauge, such as the probe status and alarms. */
+  note?: string;
 }
 
 export default function TankGauge({
   product, tankNo, site, percent, bookLitres, capacityLitres, reorderLitres, temperatureC, waterMm, belowReorder,
+  productHeightMm, tankHeightMm, note,
 }: TankGaugeProps) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const SCALE_METRES = tankHeightMm && tankHeightMm > 0 ? tankHeightMm / 1000 : DEFAULT_SCALE_METRES;
+  const step = SCALE_METRES / 6;
+  const MAJOR_TICKS = Array.from({ length: 7 }, (_, i) => i * step);
   const level = Math.min(Math.max(percent, 0), 100);
-  const levelMetres = (level / 100) * SCALE_METRES;
+  const levelMetres = productHeightMm != null && tankHeightMm ? Math.min(productHeightMm / 1000, SCALE_METRES)
+    : (level / 100) * SCALE_METRES;
   const yOf = (metres: number) => IN.y + IN.h - (metres / SCALE_METRES) * IN.h;
   const liquidTop = yOf(levelMetres);
   const liquidHeight = IN.y + IN.h - liquidTop;
   const diesel = product.startsWith('DIESEL');
   const ullage = Math.max(capacityLitres - bookLitres, 0);
   const markerY = liquidTop;
-  const markerLabel = `${levelMetres.toFixed(2)} m`;
+  const markerLabel = `${(productHeightMm != null ? productHeightMm / 1000 : levelMetres).toFixed(2)} m`;
 
   return (
     <section className={`card tank-card${belowReorder ? ' low' : ''}`}>
@@ -109,10 +119,10 @@ export default function TankGauge({
 
         {/* metre scale */}
         <line x1="258" x2="258" y1={yOf(SCALE_METRES)} y2={yOf(0)} stroke="#5c6670" />
-        {Array.from({ length: 13 }, (_, i) => i * 0.25).map((m) => (
-          <line key={m} x1="258" x2={m % 0.5 === 0 ? 266 : 262} y1={yOf(m)} y2={yOf(m)} stroke="#5c6670" />
+        {Array.from({ length: 13 }, (_, i) => i * (step / 2)).map((m, i) => (
+          <line key={m} x1="258" x2={i % 2 === 0 ? 266 : 262} y1={yOf(m)} y2={yOf(m)} stroke="#5c6670" />
         ))}
-        {MAJOR_TICKS.filter((m) => Math.abs(m - levelMetres) > 0.22).map((m) => (
+        {MAJOR_TICKS.filter((m) => Math.abs(m - levelMetres) > SCALE_METRES * 0.07).map((m) => (
           <text key={m} x="272" y={yOf(m) + 4} className="tg-scale">{m.toFixed(2)} m</text>
         ))}
         <g transform={`translate(0 ${markerY})`}>
@@ -135,6 +145,7 @@ export default function TankGauge({
       </div>
       <small className="tg-foot">
         Reorder at {reorderLitres != null ? `${num(reorderLitres, 0)} L` : '—'} · Water {waterMm != null ? `${num(waterMm)} mm` : '—'}
+        {note && <><br />{note}</>}
       </small>
     </section>
   );

@@ -1,5 +1,6 @@
 package com.maestro.fuelorder;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,13 +15,15 @@ import java.util.List;
 public class WebConfig {
 
     /**
-     * Dev-only CORS for the Vite portal (any localhost port). Registered ahead of the auth
-     * filter so 401 responses also carry CORS headers; in production the gateway owns this.
+     * CORS for the portal: any localhost port in dev, plus the public domains set via
+     * MAESTRO_CORS_ALLOWED_ORIGINS in production. Registered ahead of the auth filter so
+     * 401 responses also carry CORS headers.
      */
     @Bean
-    public FilterRegistrationBean<CorsFilter> corsFilter() {
+    public FilterRegistrationBean<CorsFilter> corsFilter(
+            @Value("${maestro.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*}") List<String> origins) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        config.setAllowedOriginPatterns(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
 

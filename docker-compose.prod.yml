@@ -41,6 +41,7 @@ services:
       MAESTRO_SEED_PASSWORD: ${SEED_PASSWORD:?set SEED_PASSWORD in .env}
       MAESTRO_DEMO_EXPOSE_OTP: "false"
       MAESTRO_MQTT_ENABLED: "false"
+      MAESTRO_CORS_ALLOWED_ORIGINS: https://maestrobyotpplus.com,https://www.maestrobyotpplus.com
     deploy:
       resources:
         limits: { cpus: "1.0", memory: 768M }
